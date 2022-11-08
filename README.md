@@ -1,7 +1,5 @@
 # Go Task Scheduler
 
-[Summary (English)](##EN) / [Resumen (Español)](##ES) / [Code (Codigo)](##CODE)
-
 - [Summary (English)](#en)
 - [Resumen (Spanish)](#es)
 - [Code Example (Código de Ejemplo)](#code)
