@@ -6,7 +6,7 @@
 
 ---
 
-#Summary 
+# Summary 
 
 Go Task Scheduler is a basic (periodic and one-shot) task scheduler.
 
@@ -34,7 +34,7 @@ DelAllTasks Deletes all tasks from the scheduler. If none exists, it has no effe
 
 ---
 
-#Resumen
+# Resumen
 
 Go Task Scheduler es un programador de tareas basico (periodicas y de una sola ejecución).
 
@@ -60,7 +60,7 @@ DelTask Elimina una tarea (segun el ID proporcionado) del programador. Si no exi
 
 DelAllTasks Elimina todas las tareas del programador. Si no existe ninguna no surte efecto. No devuelve informacion.
 
-#Example
+# Example
 
 ```go
 package main
