@@ -22,6 +22,7 @@ type TList struct {
 	id      int
 	name    string
 	seconds uint32
+	once    bool
 }
 
 //Timers (internal list)
@@ -118,7 +119,7 @@ func ListTasks() (list map[int]*TList) {
 	list = make(map[int]*TList)
 
 	for key, value := range timers {
-		list[key] = &TList{key, value.name, value.seconds}
+		list[key] = &TList{key, value.name, value.seconds, value.once}
 	}
 
 	return list
