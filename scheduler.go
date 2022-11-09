@@ -30,6 +30,8 @@ type TList struct {
 //Timers (internal list)
 var timers = map[int]*timer{}
 
+var gc bool
+
 //true while scheduler is stopping
 var doStop bool
 
@@ -50,6 +52,16 @@ func SetTasksLimit(limit int) {
 //function is a func task
 //once determine if it's an one time task
 func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err error) {
+	if !gc {
+		gc = true
+		go func() {
+			for {
+				runtime.GC()
+				time.Sleep(1 * time.Second)
+			}
+		}()
+	}
+
 	if len(timers) >= tasksLimit {
 		err = errors.New("too many tasks")
 		return 0, err
@@ -105,6 +117,7 @@ func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err e
 	}
 
 	go func() {
+		time.Sleep(time.Duration(seconds) * time.Second)
 		function()
 	}()
 
@@ -139,7 +152,7 @@ func ListTasks() (list map[int]*TList) {
 }
 
 func StopTask(id int) {
-	if _, ok := timers[id]; ok {
+	if timers[id] != nil {
 		timers[id].stop = true
 	}
 }
