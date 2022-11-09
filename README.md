@@ -64,10 +64,17 @@ DelAllTasks Elimina todas las tareas del programador. Si no existe ninguna no su
 
 ```go
 package main
+
 import "github.com/SERBice/gotaskscheduler"
+
+func myFunction() {
+	fmt.Println("One print each 1 minute!")
+}
+
 func main() {
 	AddTask("", 1, func() { fmt.Println("One print each second!") }, false)
 	AddTask("custom task name", 12, func() { fmt.Println("One print each 12 seconds!") }, false)
+	AddTask("minute task", 60, myFunction, false)
 	AddTask("One Time Task", 15, func() { fmt.Println("One-Time execution at 15 seconds") }, true)
 	StartScheduler()
 
