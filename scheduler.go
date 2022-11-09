@@ -140,7 +140,12 @@ func ListTasks() (list map[int]*TList) {
 }
 
 //Stop Scheduler (and optionally Delete all Tasks) (if prev started)
-func StopScheduler(DelTasks bool) {
+func StopAllTasks(DelTasks bool) {
+
+	if started == false {
+		return
+	}
+
 	doStop = true
 
 	if DelTasks {
