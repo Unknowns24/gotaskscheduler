@@ -3,6 +3,7 @@ package gotaskscheduler
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -14,6 +15,7 @@ type timer struct {
 	name     string
 	once     bool
 	seconds  uint32
+	stop     bool
 	function Fn
 }
 
@@ -26,13 +28,7 @@ type TList struct {
 }
 
 //Timers (internal list)
-var timers map[int]*timer
-
-//true while scheduler is initialized
-var initialized bool
-
-//true while scheduler is started
-var started bool
+var timers = map[int]*timer{}
 
 //true while scheduler is stopping
 var doStop bool
@@ -54,24 +50,21 @@ func SetTasksLimit(limit int) {
 //function is a func task
 //once determine if it's an one time task
 func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err error) {
-	if initialized == false {
-		doinit()
-	}
-
 	if len(timers) >= tasksLimit {
-		err = errors.New("Too many tasks!")
+		err = errors.New("too many tasks")
 		return 0, err
 	}
 
 	//Seconds is uint32, the limit is 4294967295, but 3155760000 seconds is 100 years, should be enough
 	if seconds >= 3155760001 {
-		err = errors.New("Too much time!")
+		err = errors.New("too much time")
 		return 0, err
 	}
 
 	//this should never happen
 	if lastTimer >= 4294967290 {
-		err = errors.New("Too many tasks, danger of overflow!")
+		err = errors.New("too many tasks, danger of overflow")
+		return 0, err
 	}
 
 	//increase id
@@ -83,7 +76,38 @@ func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err e
 		name = fmt.Sprintf("Task %d", id)
 	}
 
-	timers[id] = &timer{name, once, seconds, function}
+	if !once {
+		timers[id] = &timer{name, once, seconds, false, function}
+
+		go func(id int) {
+			for {
+				// Verify taks still exist
+				if _, ok := timers[id]; !ok {
+					return
+				}
+
+				// Verify if schedule is being stopped
+				if doStop {
+					break
+				}
+
+				// Verify if task is being stopped
+				if timers[id].stop {
+					break
+				}
+
+				time.Sleep(time.Duration(seconds) * time.Second)
+				function()
+			}
+		}(id)
+
+		err = nil
+		return id, err
+	}
+
+	go func() {
+		function()
+	}()
 
 	err = nil
 	return id, err
@@ -91,31 +115,21 @@ func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err e
 
 //Manually task execution
 func ExecTask(id int) (err error) {
-	if initialized == false {
-		doinit()
-	}
 	if _, ok := timers[id]; ok {
 		timers[id].function()
 		return nil
 	}
-	err = errors.New("Task does not exist")
+	err = errors.New("task does not exist")
 	return err
 }
 
 //Count total tasks.
 func CountTasks() int {
-	if initialized == false {
-		doinit()
-	}
 	return len(timers)
 }
 
 //List Tasks (ID, NAME, SECONDS)
 func ListTasks() (list map[int]*TList) {
-	if initialized == false {
-		doinit()
-	}
-
 	list = make(map[int]*TList)
 
 	for key, value := range timers {
@@ -125,109 +139,21 @@ func ListTasks() (list map[int]*TList) {
 	return list
 }
 
-//Delete a Task in the timers list (if exists)
-func DelTask(id int) {
-	if initialized == false {
-		doinit()
+//Stop Scheduler (and optionally Delete all Tasks) (if prev started)
+func StopScheduler(DelTasks bool) {
+	doStop = true
+
+	if DelTasks {
+		timers = map[int]*timer{}
+		runtime.GC()
 	}
+}
+
+func DeleteTask(id int) {
 	delete(timers, id)
 }
 
-//Delete all Tasks in the timers list (if exists)
-func DelAllTasks() (err error) {
-	if initialized == false {
-		doinit()
-	}
-	for key := range timers {
-		delete(timers, key)
-	}
-	return nil
-}
-
-//Stop Scheduler (and optionally Delete all Tasks) (if prev started)
-func StopScheduler(DelTasks bool) {
-	if initialized == false {
-		doinit()
-	}
-
-	if started == false {
-		return
-	}
-
+func StopTask(id int) {
+	timers[id].stop = true
 	doStop = true
-
-	if DelTasks == true {
-		DelAllTasks()
-		lastTimer = 0
-	}
-
-	//Wait until routine timers stop
-	for started != true && doStop != true {
-		time.Sleep(10 * time.Millisecond)
-	}
-}
-
-//It is called once when starting to use this module.
-func doinit() {
-	if initialized == false {
-		//Initialize variable for timers
-		timers = make(map[int]*timer)
-		//set status to initialized=true
-		initialized = true
-	}
-}
-
-//Start Scheduler.
-func StartScheduler() {
-	if initialized == false {
-		doinit()
-	}
-
-	//Wait until previus routine timers stop
-	for doStop != false {
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	//Prevent double excecution
-	if started == true {
-		return
-	}
-
-	started = true
-
-	//Run Scheduler loop in go routine
-	go func() {
-
-		var tick uint32
-
-		//While (doStop == false)
-		for doStop == false {
-			//wait 1 second (sleep routine)
-			time.Sleep(1 * time.Second)
-			//increment tick counter (seconds from task scheduler start)
-			tick++
-
-			//prevents overflow, set tick to 0 (this should never happen)
-			if tick > 4294967290 {
-				tick = 0
-			}
-
-			for key, value := range timers {
-				//calculate seconds Mod of tick = 0
-				if tick%(value.seconds) == 0 {
-					//Run timer function as go routine (async)
-					go func(function Fn) {
-						function()
-					}(value.function)
-
-					if value.once == true {
-						DelTask(key)
-					}
-				}
-			}
-		}
-		started = false
-		doStop = false
-		return
-	}()
 }
