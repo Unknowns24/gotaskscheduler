@@ -81,9 +81,9 @@ func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err e
 
 		go func(id int) {
 			for {
-				// Verify taks still exist
-				if _, ok := timers[id]; !ok {
-					return
+				time.Sleep(time.Duration(seconds) * time.Second)
+				if timers[id] == nil {
+					break
 				}
 
 				// Verify if schedule is being stopped
@@ -96,7 +96,6 @@ func AddTask(name string, seconds uint32, function Fn, once bool) (id int, err e
 					break
 				}
 
-				time.Sleep(time.Duration(seconds) * time.Second)
 				function()
 			}
 		}(id)
@@ -139,26 +138,27 @@ func ListTasks() (list map[int]*TList) {
 	return list
 }
 
+func StopTask(id int) {
+	if _, ok := timers[id]; ok {
+		timers[id].stop = true
+	}
+}
+
 //Stop Scheduler (and optionally Delete all Tasks) (if prev started)
 func StopAllTasks(DelTasks bool) {
-
-	if started == false {
-		return
-	}
-
 	doStop = true
 
 	if DelTasks {
 		timers = map[int]*timer{}
-		runtime.GC()
+		go func() {
+			runtime.GC()
+		}()
 	}
 }
 
 func DeleteTask(id int) {
 	delete(timers, id)
-}
-
-func StopTask(id int) {
-	timers[id].stop = true
-	doStop = true
+	go func() {
+		runtime.GC()
+	}()
 }
